@@ -9,14 +9,26 @@
 #define DESC_LEN 120
 #define STOCK_MINIMO 5
 
+/* --- COLORES Y FORMATO PARA CONSOLA --- */
+#define BLANCO "\x1b[0m"
+#define ROJO     "\x1b[31m"
+#define VERDE    "\x1b[32m"
+#define AMARILLO "\x1b[33m"
+#define AZUL     "\x1b[34m"
+#define MAGENTA  "\x1b[35m"
+#define CELESTE     "\x1b[36m"
+#define BLANCO   "\x1b[37m"
+#define NEGRITA  "\x1b[1m"
 
+/* Estructuras */
 typedef struct {
-    int id;
+    int id;                 // ID interno numérico (1, 2, 3...)
+    char codigo_txt[20];    // Para guardar el código A001, B001 del archivo
     char nombre[NAME_LEN];
-    char descripcion[DESC_LEN];
+    char descripcion[DESC_LEN]; 
     double precio;
     int stock;
-    int iva;    // porcentaje entero 0, 12, 15, etc.
+    int iva;    
     int activo; // 1 = existe, 0 = eliminado
 } Producto;
 
@@ -27,18 +39,40 @@ typedef struct {
     int iva;
 } ItemCarrito;
 
-/* almacenamiento */
+/* Almacenamiento Global */
 Producto productos[MAX_PRODS + 1]; // índice desde 1
 int productos_count = 0;
 
-/* caja */
+/* Caja Global */
 int caja_abierta = 0;
 double caja_ingresos = 0.0;
-
-/* IVA por defecto fijo */
 int IVA_POR_DEFECTO = 12;
 
-/* ---------- FUNCIONES DE LECTURA SEGURA ---------- */
+/* ---------- PROTOTIPOS ---------- */
+/* Es buena práctica declarar los prototipos arriba si las funciones se llaman entre sí desordenadamente */
+void leer_linea(char *buf, int len);
+int leer_entero(const char *msg);
+double leer_double(const char *msg);
+void esperar_enter();
+void limpiar_pantalla();
+Producto* buscar_producto_por_id(int id);
+void listar_y_ajustar_productos();
+
+/* ---------- FUNCIONES AUXILIARES ---------- */
+
+void limpiar_pantalla() {
+    #ifdef _WIN32
+        system("cls");
+    #else
+        system("clear");
+    #endif
+}
+
+void esperar_enter() {
+    printf("\nPresiona ENTER para continuar...");
+    char temp[10]; 
+    leer_linea(temp, 10);
+}
 
 void leer_linea(char *buf, int len) {
     if (fgets(buf, len, stdin) != NULL) {
@@ -57,7 +91,7 @@ int leer_entero(const char *msg) {
         if (msg) printf("%s", msg);
         leer_linea(buf, sizeof(buf));
         if (sscanf(buf, "%d", &x) == 1) return x;
-        printf("Entrada inválida. Ingresa un número entero.\n");
+        printf("Entrada invalida. Ingresa un numero entero.\n");
     }
 }
 
@@ -68,54 +102,63 @@ double leer_double(const char *msg) {
         if (msg) printf("%s", msg);
         leer_linea(buf, sizeof(buf));
         if (sscanf(buf, "%lf", &x) == 1) return x;
-        printf("Entrada inválida. Ingresa un número decimal.\n");
+        printf("Entrada invalida. Ingresa un numero decimal.\n");
     }
 }
 
-void leer_cadena(const char *msg, char *out, int len) {
-    if (msg) printf("%s", msg);
-    leer_linea(out, len);
-}
-
 /* ---------- GENERAR ID ---------- */
-
 int generar_id() {
     static int next = 1;
     return next++;
 }
 
-/* ---------- PRODUCTOS ---------- */
-
-void registrar_producto() {
-    if (productos_count + 1 > MAX_PRODS) {
-        printf("No se pueden agregar más productos.\n");
+/* ---------- CARGA DE ARCHIVOS ---------- */
+void cargar_productos_desde_archivo(const char *nombre_archivo) {
+    FILE *f = fopen(nombre_archivo, "r");
+    if (!f) {
+        printf(AMARILLO "ADVERTENCIA: No se pudo abrir el archivo '%s'. Iniciando vacio.\n" BLANCO, nombre_archivo);
+        esperar_enter();
         return;
     }
 
-    Producto p;
-    p.id = generar_id();
+    char linea[256];
 
-    leer_cadena("Nombre: ", p.nombre, NAME_LEN);
-    leer_cadena("Descripción: ", p.descripcion, DESC_LEN);
+    while (fgets(linea, sizeof(linea), f)) {
+        if (productos_count + 1 > MAX_PRODS) {
+            printf("Memoria llena, no se pueden cargar mas productos.\n");
+            break;
+        }
 
-    do {
-        p.precio = leer_double("Precio: ");
-        if (p.precio <= 0) printf("El precio debe ser positivo.\n");
-    } while (p.precio <= 0);
+        if (strlen(linea) < 5) continue;
 
-    do {
-        p.stock = leer_entero("Stock inicial: ");
-        if (p.stock < 0) printf("El stock no puede ser negativo.\n");
-    } while (p.stock < 0);
+        Producto p;
+        memset(&p, 0, sizeof(Producto));
 
-    p.iva = IVA_POR_DEFECTO;
-    p.activo = 1;
+        // Formato: Codigo;Nombre;Categoria;Precio;Stock
+        int leidos = sscanf(
+            linea,
+            "%19[^;];%49[^;];%119[^;];%lf;%d",
+            p.codigo_txt,    
+            p.nombre,        
+            p.descripcion,   
+            &p.precio,       
+            &p.stock         
+        );
 
-    productos[++productos_count] = p;
+        if (leidos == 5) {
+            p.id = generar_id(); 
+            p.iva = IVA_POR_DEFECTO;
+            p.activo = 1;
+            productos[++productos_count] = p;
+        }
+    }
 
-    printf("Producto agregado con ID %d\n", p.id);
+    fclose(f);
+    printf(VERDE "--> Se cargaron %d productos desde el archivo.\n" BLANCO, productos_count);
+    esperar_enter();
 }
 
+/* ---------- BUSCAR PRODUCTO ---------- */
 Producto* buscar_producto_por_id(int id) {
     for (int i = 1; i <= productos_count; i++) {
         if (productos[i].id == id && productos[i].activo)
@@ -124,162 +167,282 @@ Producto* buscar_producto_por_id(int id) {
     return NULL;
 }
 
-void listar_y_ajustar_productos() {
-    if (productos_count == 0) {
-        printf("No hay productos registrados.\n");
+/* ---------- GESTION PRODUCTOS ---------- */
+
+void registrar_producto() {
+    limpiar_pantalla();
+    printf(CELESTE "========================================\n");
+    printf("        REGISTRAR NUEVO PRODUCTO        \n");
+    printf("========================================\n" BLANCO);
+
+    if (productos_count + 1 > MAX_PRODS) {
+        printf(ROJO "Error: Memoria llena (Max %d productos).\n" BLANCO, MAX_PRODS);
+        esperar_enter();
         return;
     }
 
-    printf("\n--- LISTA DE PRODUCTOS ---\n");
-    printf("%-4s %-20s %-8s %-6s %-4s %s\n",
-           "ID", "NOMBRE", "PRECIO", "STOCK", "IVA", "DESCRIPCION");
+    Producto p;
+    p.id = generar_id();
+    strcpy(p.codigo_txt, "MANUAL"); 
 
-for (int i = 1; i <= productos_count; i++) {
-    if (!productos[i].activo) continue;
-    printf("%-4d %-20s $%6.2f %-6d %-4d %s",
-           productos[i].id, productos[i].nombre, productos[i].precio,
-           productos[i].stock, productos[i].iva, productos[i].descripcion);
+    printf("ID Interno asignado: " NEGRITA "%d\n\n" BLANCO, p.id);
 
-    if (productos[i].stock <= STOCK_MINIMO) {
-        printf("  <-- ALERTA: Stock bajo\n");
-    } else {
-        printf("\n");
-    }
+    printf(AMARILLO "Nombre del producto: " BLANCO);
+    leer_linea(p.nombre, NAME_LEN);
+
+    printf(AMARILLO "Categoria/Descripcion: " BLANCO);
+    leer_linea(p.descripcion, DESC_LEN);
+
+    do {
+        printf(AMARILLO "Precio unitario: " BLANCO);
+        p.precio = leer_double(NULL);
+        if (p.precio <= 0) printf(ROJO "   [!] El precio debe ser positivo.\n" BLANCO);
+    } while (p.precio <= 0);
+
+    do {
+        printf(AMARILLO "Stock inicial: " BLANCO);
+        p.stock = leer_entero(NULL);
+        if (p.stock < 0) printf(ROJO "   [!] El stock no puede ser negativo.\n" BLANCO);
+    } while (p.stock < 0);
+
+    p.iva = IVA_POR_DEFECTO;
+    p.activo = 1;
+
+    productos[++productos_count] = p;
+
+    printf(VERDE "\n[OK] Producto registrado exitosamente.\n" BLANCO);
+    esperar_enter();
 }
 
+void listar_y_ajustar_productos() {
+    while(1) {
+        limpiar_pantalla();
+        if (productos_count == 0) {
+            printf(ROJO "No hay productos registrados.\n" BLANCO);
+            esperar_enter();
+            return;
+        }
 
-    printf("\n¿Deseas ajustar un producto? \n1=Sí  \n2=No\n");
-int op;
-do {
-    op = leer_entero("Opción: ");
-    if (op != 1 && op != 2) {
-        printf("Opción inválida. Ingresa 1 o 2.\n");
+        printf(CELESTE "===============================================================\n");
+        printf("                  CATALOGO DE PRODUCTOS                        \n");
+        printf("===============================================================\n" BLANCO);
+        printf(NEGRITA "%-4s | %-6s | %-20s | %-10s | %-8s\n" BLANCO, 
+               "ID", "CODIGO", "NOMBRE", "PRECIO", "STOCK");
+        printf("---------------------------------------------------------------\n");
+
+        for (int i = 1; i <= productos_count; i++) {
+            if (!productos[i].activo) continue;
+
+            if (productos[i].stock <= STOCK_MINIMO) {
+                printf(ROJO "%-4d | %-6s | %-20s | $%-9.2f | %-6d (BAJO)\n" BLANCO,
+                    productos[i].id, productos[i].codigo_txt, productos[i].nombre, productos[i].precio, productos[i].stock);
+            } else {
+                printf("%-4d | %-6s | %-20s | $%-9.2f | %-6d\n",
+                    productos[i].id, productos[i].codigo_txt, productos[i].nombre, productos[i].precio, productos[i].stock);
+            }
+        }
+        printf("---------------------------------------------------------------\n");
+
+        printf(AMARILLO "\n[OPCIONES]\n" BLANCO);
+        printf("1) Modificar un producto\n");
+        printf("2) Volver al menu anterior\n");
+        
+        int op = leer_entero("\nSeleccione opcion: ");
+
+        if (op == 2) return;
+        if (op != 1) continue;
+
+        /* MODIFICAR PRODUCTO */
+        int id;
+        printf(AMARILLO "\nIngrese ID del producto a modificar: " BLANCO);
+        id = leer_entero(NULL);
+        
+        Producto *p = buscar_producto_por_id(id);
+        if (!p) {
+            printf(ROJO "[!] Producto no encontrado.\n" BLANCO);
+            esperar_enter();
+            continue;
+        }
+
+        int sub;
+        do {
+            limpiar_pantalla();
+            printf(CELESTE "--- EDITANDO: %s (ID %d) ---\n" BLANCO, p->nombre, p->id);
+            printf("Precio actual: $%.2f  |  Stock actual: %d\n", p->precio, p->stock);
+            printf("--------------------------------\n");
+            printf("1) Cambiar precio\n");
+            printf("2) Cambiar IVA\n");
+            printf("3) Ajustar stock (Inventario)\n");
+            printf("4) " ROJO "Eliminar producto\n" BLANCO);
+            printf("5) Volver al catalogo\n");
+
+            printf(AMARILLO "\nSeleccione: " BLANCO);
+            sub = leer_entero(NULL);
+
+            if (sub == 1) {
+                printf("Nuevo precio: ");
+                p->precio = leer_double(NULL);
+                printf(VERDE "[OK] Precio actualizado.\n" BLANCO);
+                esperar_enter();
+            }
+            else if (sub == 2) {
+                printf("Nuevo IVA (%%): ");
+                p->iva = leer_entero(NULL);
+            }
+            else if (sub == 3) {
+                printf("Nuevo stock total: ");
+                p->stock = leer_entero(NULL);
+                printf(VERDE "[OK] Stock actualizado.\n" BLANCO);
+                esperar_enter();
+            }
+            else if (sub == 4) {
+                char conf[10];
+                printf(ROJO "¿Seguro que desea eliminarlo? (s/n): " BLANCO);
+                leer_linea(conf, 10);
+                if(tolower(conf[0]) == 's'){
+                    p->activo = 0;
+                    printf(ROJO "Producto eliminado.\n" BLANCO);
+                    esperar_enter();
+                    sub = 5; // Salir forzado
+                }
+            }
+        } while (sub != 5);
     }
-} while (op != 1 && op != 2);
-
-if (op != 1) return;
-
-
-
-    int id = leer_entero("ID del producto: ");
-    Producto *p = buscar_producto_por_id(id);
-    if (!p) {
-        printf("Producto no encontrado.\n");
-        return;
-    }
-
-    int sub;
-    do {
-        printf("\n--- Ajustes para %s (ID %d) ---\n", p->nombre, p->id);
-        printf("1) Cambiar precio\n");
-        printf("2) Cambiar IVA\n");
-        printf("3) Cambiar stock\n");
-        printf("4) Eliminar producto\n");
-        printf("5) Volver\n");
-        sub = leer_entero("Seleccione: ");
-
-        if (sub == 1) {
-            double nuevo;
-            do {
-                nuevo = leer_double("Nuevo precio: ");
-                if (nuevo <= 0) printf("El precio debe ser positivo.\n");
-            } while (nuevo <= 0);
-            p->precio = nuevo;
-        }
-        else if (sub == 2) {
-            int nuevo;
-            do {
-                nuevo = leer_entero("Nuevo IVA (%): ");
-                if (nuevo < 0) printf("El IVA no puede ser negativo.\n");
-            } while (nuevo < 0);
-            p->iva = nuevo;
-        }
-        else if (sub == 3) {
-            int nuevo;
-            do {
-                nuevo = leer_entero("Nuevo stock: ");
-                if (nuevo < 0) printf("El stock no puede ser negativo.\n");
-            } while (nuevo < 0);
-            p->stock = nuevo;
-        }
-        else if (sub == 4) { p->activo = 0; printf("Producto eliminado.\n"); }
-        else if (sub != 5) printf("Opción inválida.\n");
-
-    } while (sub != 5);
 }
 
 /* ---------- CAJA ---------- */
 
 void abrir_caja() {
+    limpiar_pantalla();
+    printf(CELESTE "--- CONTROL DE CAJA ---\n\n" BLANCO);
+    
     if (caja_abierta) {
-        printf("La caja ya está abierta.\n");
-        return;
+        printf(AMARILLO "[!] La caja ya se encuentra abierta.\n" BLANCO);
+        printf("Ingresos acumulados hasta el momento: $%.2f\n", caja_ingresos);
+    } else {
+        caja_abierta = 1;
+        caja_ingresos = 0;
+        printf(VERDE "[OK] CAJA APERTURADA CORRECTAMENTE.\n" BLANCO);
+        printf("El sistema esta listo para realizar ventas.\n");
     }
-    caja_abierta = 1;
-    caja_ingresos = 0;
-    printf("Caja abierta.\n");
+    esperar_enter();
 }
 
 void cerrar_caja() {
+    limpiar_pantalla();
+    printf(CELESTE "--- CIERRE DE CAJA ---\n\n" BLANCO);
+
     if (!caja_abierta) {
-        printf("La caja no está abierta.\n");
-        return;
+        printf(ROJO "[!] La caja no esta abierta.\n" BLANCO);
+    } else {
+        printf("Cerrando sistema de cobro...\n");
+        printf("--------------------------------\n");
+        printf(VERDE NEGRITA "INGRESOS TOTALES DE LA SESION: $%.2f\n" BLANCO, caja_ingresos);
+        printf("--------------------------------\n");
+        
+        caja_abierta = 0;
+        caja_ingresos = 0;
+        printf("La caja ha sido cerrada y los contadores reiniciados.\n");
     }
-    printf("Caja cerrada. Ingresos: $%.2f\n", caja_ingresos);
-    caja_abierta = 0;
-    caja_ingresos = 0;
+    esperar_enter();
 }
 
 /* ---------- VENTAS ---------- */
 
 void venta() {
+    limpiar_pantalla(); 
+
+    /* 1. VALIDACIONES INICIALES */
     if (!caja_abierta) {
-        printf("La caja está cerrada. Ábrela para vender.\n");
-        return;
+        printf(ROJO "\n[!] ERROR: La caja esta cerrada.\n" BLANCO);
+        printf("Por favor, abre la caja desde el menu principal para comenzar a vender.\n");
+        esperar_enter(); return;
+    }
+
+    if (productos_count == 0) {
+        printf(ROJO "\n[!] ERROR: No hay productos cargados.\n" BLANCO);
+        esperar_enter(); return;
     }
 
     ItemCarrito cart[MAX_CART + 1];
     int ccount = 0;
 
-    printf("\n--- VENTAS ---\n");
-
+    /* 2. BUCLE DE VENTA */
     while (1) {
-        int id;
-        do {
-            id = leer_entero("ID del producto (0 para terminar): ");
-            if (id < 0) printf("El ID no puede ser negativo.\n");
-        } while (id < 0);
+        limpiar_pantalla(); 
+        
+        // CABECERA
+        printf(CELESTE "===============================================================\n");
+        printf("                  PUNTO DE VENTA - NUEVA ORDEN                 \n");
+        printf("===============================================================\n" BLANCO);
 
-        if (id == 0) break;
+        // TABLA DE PRODUCTOS
+        printf(NEGRITA "%-4s | %-25s | %-10s | %-8s\n" BLANCO, "ID", "PRODUCTO", "PRECIO", "STOCK");
+        printf("---------------------------------------------------------------\n");
+        
+        for(int i = 1; i <= productos_count; i++) {
+            if(productos[i].activo) {
+                if(productos[i].stock <= STOCK_MINIMO) {
+                    printf(ROJO "%-4d | %-25s | $%-9.2f | %-8d (BAJO)\n" BLANCO, 
+                        productos[i].id, productos[i].nombre, productos[i].precio, productos[i].stock);
+                } else {
+                    printf("%-4d | %-25s | $%-9.2f | %-8d\n", 
+                        productos[i].id, productos[i].nombre, productos[i].precio, productos[i].stock);
+                }
+            }
+        }
+        printf("---------------------------------------------------------------\n");
+
+        // MOSTRAR CARRITO ACTUAL
+        if (ccount > 0) {
+            printf(VERDE "\n   --- CARRITO ACTUAL (%d items) ---\n" BLANCO, ccount);
+            double sub_temp = 0;
+            for(int k=1; k<=ccount; k++) {
+                Producto *p_temp = buscar_producto_por_id(cart[k].prod_id);
+                printf("   + %dx %s\n", cart[k].cantidad, p_temp->nombre);
+                sub_temp += (cart[k].cantidad * cart[k].precio_unitario);
+            }
+            printf(VERDE "   Subtotal parcial: $%.2f\n" BLANCO, sub_temp);
+            printf("---------------------------------------------------------------\n");
+        }
+
+        // INPUT
+        int id;
+        printf(AMARILLO "\n Ingresa el ID del producto (0 para finalizar/pagar): " BLANCO);
+        id = leer_entero(NULL);
+
+        if (id == 0) break; // Ir a pagar
 
         Producto *p = buscar_producto_por_id(id);
         if (!p) {
-            printf("Producto no encontrado.\n");
+            printf(ROJO "\n[X] Producto con ID %d no encontrado.\n" BLANCO, id);
+            esperar_enter();
             continue;
         }
 
-        printf("Producto: %s | Precio: %.2f | Stock: %d | IVA: %d%%\n",
-               p->nombre, p->precio, p->stock, p->iva);
+        printf(CELESTE "\n   Seleccionado: %s\n" BLANCO, p->nombre);
+        printf("   Precio: $%.2f | Stock: %d\n", p->precio, p->stock);
 
         int cant;
-        do {
-            cant = leer_entero("Cantidad (0 cancela): ");
-            if (cant < 0) printf("La cantidad no puede ser negativa.\n");
-        } while (cant < 0);
+        printf(AMARILLO "    Cantidad a llevar (0 para cancelar): " BLANCO);
+        cant = leer_entero(NULL);
 
-        if (cant == 0) continue;
+        if (cant <= 0) continue;
 
-        while (cant > p->stock) {
-            printf("Stock insuficiente. Disponible: %d\n", p->stock);
-            do {
-                cant = leer_entero("Nueva cantidad (0 cancela): ");
-                if (cant < 0) printf("La cantidad no puede ser negativa.\n");
-            } while (cant < 0);
-
-            if (cant == 0) break;
+        // VERIFICACIÓN DE STOCK
+        int en_carrito = 0;
+        for (int i=1; i<=ccount; i++) {
+            if (cart[i].prod_id == id) en_carrito += cart[i].cantidad;
         }
-        if (cant == 0) continue;
 
+        if ((cant + en_carrito) > p->stock) {
+            printf(ROJO "\n[!] STOCK INSUFICIENTE\n" BLANCO);
+            printf("    Stock real: %d | En carrito: %d | Solicitado: %d\n", p->stock, en_carrito, cant);
+            esperar_enter();
+            continue;
+        }
+
+        // AGREGAR AL CARRITO
         int found = 0;
         for (int i = 1; i <= ccount; i++) {
             if (cart[i].prod_id == id) {
@@ -291,7 +454,7 @@ void venta() {
 
         if (!found) {
             if (ccount + 1 > MAX_CART) {
-                printf("Carrito lleno.\n");
+                printf(ROJO "Carrito lleno.\n" BLANCO);
                 break;
             }
             cart[++ccount].prod_id = id;
@@ -299,25 +462,49 @@ void venta() {
             cart[ccount].precio_unitario = p->precio;
             cart[ccount].iva = p->iva;
         }
-
-        printf("Agregado.\n");
     }
 
+    /* 3. FINALIZAR VENTA (TICKET) */
     if (ccount == 0) {
-        printf("Venta cancelada.\n");
+        printf(AMARILLO "\nOperacion cancelada. No se agregaron productos.\n" BLANCO);
+        esperar_enter();
         return;
     }
 
+    /* ==========================================================
+       ALGORITMO DE ORDENAMIENTO (BURBUJA) - ASCENDENTE POR CANTIDAD
+       ========================================================== */
+    for (int i = 1; i < ccount; i++) {
+        for (int j = 1; j <= ccount - i; j++) {
+            // Si la cantidad actual es MAYOR que la siguiente, intercambiamos
+            // para que los menores queden arriba (Ascendente).
+            if (cart[j].cantidad > cart[j+1].cantidad) {
+                ItemCarrito temp = cart[j];
+                cart[j] = cart[j+1];
+                cart[j+1] = temp;
+            }
+        }
+    }
+    /* ========================================================== */
+
+    limpiar_pantalla();
     double subtotal = 0, total_iva = 0, total = 0;
 
-    printf("\n--- RESUMEN ---\n");
+    printf("\n\n");
+    printf(BLANCO "************************************************\n" BLANCO);
+    printf(CELESTE   "              TICKET DE VENTA                   \n" BLANCO);
+    printf(BLANCO "************************************************\n" BLANCO);
+    printf("%-20s %-5s %-10s %-10s\n", "PRODUCTO", "CANT", "P.UNIT", "TOTAL");
+    printf("------------------------------------------------\n");
+    
+    // Imprimimos el carrito YA ORDENADO
     for (int i = 1; i <= ccount; i++) {
         Producto *p = buscar_producto_por_id(cart[i].prod_id);
         double imp = cart[i].cantidad * cart[i].precio_unitario;
-        double iva_val = imp * ((double)cart[i].iva / 100);
+        double iva_val = imp * ((double)cart[i].iva / 100.0);
 
-        printf("ID %d | %s | Cant %d | Subtotal %.2f | IVA %.2f | Total %.2f\n",
-               p->id, p->nombre, cart[i].cantidad, imp, iva_val, imp + iva_val);
+        printf("%-20s %-5d $%-9.2f $%-9.2f\n",
+               p->nombre, cart[i].cantidad, cart[i].precio_unitario, imp);
 
         subtotal += imp;
         total_iva += iva_val;
@@ -325,91 +512,220 @@ void venta() {
 
     total = subtotal + total_iva;
 
-    printf("Subtotal: %.2f\n", subtotal);
-    printf("IVA: %.2f\n", total_iva);
-    printf("TOTAL: %.2f\n", total);
+    printf("------------------------------------------------\n");
+    printf("Subtotal:      $%.2f\n", subtotal);
+    printf("IVA:           $%.2f\n", total_iva);
+    printf(VERDE NEGRITA "TOTAL A PAGAR: $%.2f\n" BLANCO, total);
+    printf("************************************************\n");
 
     char buf[16];
-    printf("Confirmar venta (s/n): ");
+    printf(AMARILLO "\nConfirmar venta (S = Si / N = No): " BLANCO);
     leer_linea(buf, sizeof(buf));
 
-if (tolower(buf[0]) == 's') {
-    for (int i = 1; i <= ccount; i++) {
-        Producto *p = buscar_producto_por_id(cart[i].prod_id);
-        p->stock -= cart[i].cantidad;
-
-        if (p->stock <= STOCK_MINIMO) {
-            printf("ALERTA: El producto '%s' (ID %d) tiene stock bajo (%d unidades).\n",
-                   p->nombre, p->id, p->stock);
+    if (tolower(buf[0]) == 's') {
+        for (int i = 1; i <= ccount; i++) {
+            Producto *p = buscar_producto_por_id(cart[i].prod_id);
+            p->stock -= cart[i].cantidad;
         }
+        caja_ingresos += total;
+        printf(VERDE "\n[OK] Venta registrada correctamente.\n" BLANCO);
+    } else {
+        printf(ROJO "\n[X] Venta cancelada.\n" BLANCO);
     }
-    caja_ingresos += total;
-    printf("Venta realizada.\n");
-} else {
-    printf("Venta cancelada.\n");
-}
-
+    esperar_enter();
 }
 
 /* ---------- REPORTES ---------- */
 
 void reporte_resumen() {
-    printf("\n--- REPORTE ---\n");
-    printf("Ingresos actuales: %.2f\n", caja_ingresos);
-    printf("Productos registrados: %d\n", productos_count);
+    limpiar_pantalla();
+    printf(CELESTE "========================================\n");
+    printf("           REPORTE GERENCIAL            \n");
+    printf("========================================\n" BLANCO);
+    
+    double valor_inventario = 0;
+    int stock_total = 0;
+    for(int i=1; i<=productos_count; i++) {
+        if(productos[i].activo) {
+            valor_inventario += (productos[i].precio * productos[i].stock);
+            stock_total += productos[i].stock;
+        }
+    }
+
+    printf("Estado de Caja:     ");
+    if(caja_abierta) printf(VERDE "ABIERTA\n" BLANCO);
+    else             printf(ROJO "CERRADA\n" BLANCO);
+
+    printf("Ventas Sesion:      " VERDE "$%.2f\n" BLANCO, caja_ingresos);
+    printf("----------------------------------------\n");
+    printf("Productos unicos:   %d\n", productos_count);
+    printf("Items en inventario: %d unidades\n", stock_total);
+    printf("Valor del Inventario: " AMARILLO "$%.2f\n" BLANCO, valor_inventario);
+    printf("========================================\n");
+    
+    esperar_enter();
 }
 
-/* ---------- MENÚS ---------- */
+/* ---------- ALGORITMO DE BUSQUEDA POR NOMBRE ---------- */
+void buscar_producto_por_nombre() {
+    limpiar_pantalla();
+    printf(CELESTE "========================================\n");
+    printf("        BUSQUEDA DE PRODUCTOS           \n");
+    printf("========================================\n" BLANCO);
+
+    if (productos_count == 0) {
+        printf(ROJO "No hay productos para buscar.\n" BLANCO);
+        esperar_enter();
+        return;
+    }
+
+    char busqueda[50];
+    printf(AMARILLO "Ingrese nombre o palabra clave: " BLANCO);
+    leer_linea(busqueda, 50);
+
+    // Convertir busqueda a minusculas para comparar
+    char busqueda_lower[50];
+    strcpy(busqueda_lower, busqueda);
+    for(int i = 0; busqueda_lower[i]; i++){
+        busqueda_lower[i] = tolower(busqueda_lower[i]);
+    }
+
+    printf("\n" NEGRITA "%-4s | %-25s | %-10s | %-8s\n" BLANCO, 
+           "ID", "NOMBRE", "PRECIO", "STOCK");
+    printf("----------------------------------------------------------\n");
+
+    int encontrados = 0;
+
+    for (int i = 1; i <= productos_count; i++) {
+        if (!productos[i].activo) continue;
+
+        // Crear copia temporal del nombre del producto en minusculas
+        char nombre_temp[NAME_LEN];
+        strcpy(nombre_temp, productos[i].nombre);
+        for(int j = 0; nombre_temp[j]; j++){
+            nombre_temp[j] = tolower(nombre_temp[j]);
+        }
+
+        // ALGORITMO: strstr busca si la 'busqueda' está dentro del 'nombre'
+        if (strstr(nombre_temp, busqueda_lower) != NULL) {
+            printf("%-4d | %-25s | $%-9.2f | %-8d\n", 
+                productos[i].id, productos[i].nombre, productos[i].precio, productos[i].stock);
+            encontrados++;
+        }
+    }
+
+    printf("----------------------------------------------------------\n");
+    
+    if (encontrados == 0) {
+        printf(ROJO "No se encontraron coincidencias con '%s'.\n" BLANCO, busqueda);
+    } else {
+        printf(VERDE "Se encontraron %d resultados.\n" BLANCO, encontrados);
+    }
+
+    esperar_enter();
+}
+
+
+/* ---------- MENÚS FORMALES ---------- */
 
 void menu_productos() {
     int op;
     do {
-        printf("\n--- MENU PRODUCTOS ---\n");
-        printf("1) Registrar producto\n");
-        printf("2) Listar y ajustar\n");
-        printf("3) Volver\n");
-        op = leer_entero("Opción: ");
+        limpiar_pantalla();
+        printf("\n");
+        printf(CELESTE "   ___________________________________________________\n");
+        printf("  |                                                   |\n");
+        printf("  |            ADMINISTRACION DE INVENTARIO           |\n");
+        printf("  |___________________________________________________|\n" BLANCO);
+        printf("\n");
+        printf("    1. Registrar Nuevo Articulo\n");
+        printf("    2. Consultar Catalogo Completo\n");
+        printf("    3. " AMARILLO "Buscar Producto por Nombre" BLANCO "\n"); // <--- NUEVA OPCION
+        printf("    4. Regresar al Menu Principal\n");
+        printf("\n");
+        printf(CELESTE "   ___________________________________________________\n" BLANCO);
+        
+        printf(AMARILLO "\n  >> Seleccione una operacion: " BLANCO);
+        op = leer_entero(NULL);
 
         if (op == 1) registrar_producto();
         else if (op == 2) listar_y_ajustar_productos();
-        else if (op != 3) printf("Opción inválida.\n");
+        else if (op == 3) buscar_producto_por_nombre(); // <--- LLAMADA A LA FUNCION
+        else if (op != 4) {
+            printf(ROJO "\n  [!] Opcion no valida.\n" BLANCO);
+            esperar_enter();
+        }
 
-    } while (op != 3);
+    } while (op != 4);
 }
 
 void menu_principal() {
     int op;
     do {
-        printf("\n=== STORE RAQFRAN - MENU PRINCIPAL ===\n");
-        printf("1) Productos (catalogo)\n");
-        printf("2) Ventas\n");
-        printf("3) Caja (abrir/cerrar)\n");
-        printf("4) Reportes\n");
-        printf("5) Salir\n");
+        limpiar_pantalla();
+        /* Encabezado estilo corporativo limpio */
+        printf(AZUL "\n");
+        printf("  ======================================================\n");
+        printf("          SISTEMA DE GESTION COMERCIAL RAQFRAN          \n");
+        printf("  ======================================================\n" BLANCO);
+        printf("\n");
+        
+        printf("  " NEGRITA "MODULOS DEL SISTEMA:" BLANCO "\n\n");
+        
+        printf("    [1] Gestion de Inventario\n");
+        printf("        " CELESTE "Catalogos y precios." BLANCO "\n\n");
+        
+        printf("    [2] Punto de Venta \n");
+        printf("        " CELESTE "Facturacion y salida de mercaderia." BLANCO "\n\n");
+        
+        printf("    [3] Control de Caja\n");
+        printf("        " CELESTE "Apertura, cierre." BLANCO "\n\n");
+        
+        printf("    [4] Reportes \n");
+        printf("        " CELESTE "Resumen financiero y valoracion de stock." BLANCO "\n\n");
+        
+        printf("    [5] Finalizar Sesion\n");
+        
+        printf(AZUL "\n  ======================================================\n" BLANCO);
+        printf(AMARILLO "  >> Ingrese el numero de modulo: " BLANCO);
 
-        op = leer_entero("Seleccione: ");
+        op = leer_entero(NULL);
 
         switch (op) {
             case 1: menu_productos(); break;
             case 2: venta(); break;
             case 3: {
-                printf("1) Abrir caja\n2) Cerrar caja\n");
-                int s = leer_entero("Opción: ");
+                limpiar_pantalla();
+                printf(AZUL "\n  === CONTROL DE CAJA ===\n\n" BLANCO);
+                printf("    1. Apertura de Caja\n");
+                printf("    2. Cierre de Caja (Arqueo)\n");
+                printf("    3. Cancelar operacion\n");
+                printf(AMARILLO "\n  >> Seleccione: " BLANCO);
+                int s = leer_entero(NULL);
                 if (s == 1) abrir_caja();
                 else if (s == 2) cerrar_caja();
-                else printf("Opción inválida.\n");
                 break;
             }
             case 4: reporte_resumen(); break;
-            case 5: printf("Saliendo...\n"); return;
-            default: printf("Opción inválida.\n");
+            case 5: 
+                printf(VERDE "\n  Cerrando sistema de forma segura. Hasta luego.\n" BLANCO); 
+                return;
+            default: 
+                printf(ROJO "\n  [!] Opcion no reconocida por el sistema.\n" BLANCO);
+                esperar_enter();
         }
 
     } while (1);
 }
 
+
 int main() {
-    printf("STORE RAQFRAN - Sistema de Punto de Venta\n");
+    printf("Iniciando STORE RAQFRAN...\n");
+    /* IMPORTANTE: Asegúrate de que este archivo existe, 
+       o el programa iniciará sin productos.
+    */
+    cargar_productos_desde_archivo("C:\\Users\\EliteBook\\Documents\\Primer semestre\\Programacion\\Proyecto\\Stock.txt");
+
     menu_principal();
     return 0;
 }

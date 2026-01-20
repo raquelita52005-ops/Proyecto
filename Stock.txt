@@ -1,0 +1,9 @@
+A001;Arroz 1kg;Abarrotes;1.50;40
+A002;Azucar 1kg;Abarrotes;1.40;35
+A003;Aceite 1L;Abarrotes;3.20;25
+A004;Fideos;Abarrotes;0.80;50
+A005;Sal;Abarrotes;0.50;60
+B001;Agua 1L;Bebidas;0.70;80
+B002;Gaseosa 2L;Bebidas;2.50;30
+B003;Jugo en caja;Bebidas;1.20;40
+B004;Energizante;Bebidas;1.80;20
