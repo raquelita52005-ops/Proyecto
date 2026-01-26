@@ -1,11 +1,17 @@
 # Proyecto
 Hola, bienvenido.  
 
+
+--------------------------------------------------------------------------------------------------------
+
 📦 Sistema de Gestión Comercial RAQFRAN
 
 Sistema de gestión comercial desarrollado en lenguaje C, orientado a consola, que permite administrar inventario, realizar ventas, controlar caja y generar reportes básicos. El proyecto simula el funcionamiento de un punto de venta (POS) para pequeños comercios.
 
+--------------------------------------------------------------------------------------------------------
+
 🚀 Funcionalidades principales
+
 🗂 Gestión de Inventario
 
 Registro manual de nuevos productos.
@@ -28,6 +34,8 @@ Eliminación lógica de productos.
 
 Alerta visual cuando el stock es bajo.
 
+--------------------------------------------------------------------------------------------------------
+
 🛒 Punto de Venta
 
 Venta de productos con validación de stock.
@@ -48,6 +56,8 @@ Confirmación o cancelación de la venta.
 
 Actualización automática del inventario.
 
+--------------------------------------------------------------------------------------------------------
+
 💰 Control de Caja
 
 Apertura de caja.
@@ -55,6 +65,8 @@ Apertura de caja.
 Registro de ingresos por ventas.
 
 Cierre de caja con total de la sesión.
+
+--------------------------------------------------------------------------------------------------------
 
 📊 Reportes
 
@@ -65,6 +77,8 @@ Total vendido en la sesión.
 Cantidad total de productos en inventario.
 
 Valor monetario del inventario.
+
+--------------------------------------------------------------------------------------------------------
 
 🧠 Estructuras y Algoritmos Usados
 
@@ -80,6 +94,8 @@ Lectura y escritura desde archivo de texto.
 
 Validación de entradas (enteros y decimales).
 
+--------------------------------------------------------------------------------------------------------
+
 📁 Archivo de Productos
 
 El sistema carga productos desde un archivo de texto con el siguiente formato:
@@ -90,6 +106,8 @@ tomar en cuenta que en el codigo se debe cambiar la direccion del archivo de inv
 Ejemplo:
 A001;Arroz;Arroz blanco 1kg;1.25;50
 A002;Azucar;Azucar refinada;1.10;30
+
+--------------------------------------------------------------------------------------------------------
 
 
 ⚠️ Si el archivo no existe, el sistema inicia sin productos.
@@ -108,6 +126,8 @@ macOS
 
 Consola que soporte códigos ANSI (colores).
 
+--------------------------------------------------------------------------------------------------------
+
 
 📌 Consideraciones Importantes
 
@@ -120,6 +140,8 @@ El IVA por defecto es 12% (configurable).
 El stock mínimo para alerta es 5 unidades.
 
 La eliminación de productos es lógica, no física.
+
+--------------------------------------------------------------------------------------------------------
 
 👨‍💻 Autor
 
