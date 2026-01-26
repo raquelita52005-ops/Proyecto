@@ -4,15 +4,15 @@ Hola, bienvenido.
 
 --------------------------------------------------------------------------------------------------------
 
-📦 Sistema de Gestión Comercial RAQFRAN
+## 📦 Sistema de Gestión Comercial RAQFRAN
 
 Sistema de gestión comercial desarrollado en lenguaje C, orientado a consola, que permite administrar inventario, realizar ventas, controlar caja y generar reportes básicos. El proyecto simula el funcionamiento de un punto de venta (POS) para pequeños comercios.
 
 --------------------------------------------------------------------------------------------------------
 
-🚀 Funcionalidades principales
+## 🚀 Funcionalidades principales
 
-🗂 Gestión de Inventario
+## 🗂 Gestión de Inventario
 
 Registro manual de nuevos productos.
 
@@ -36,7 +36,7 @@ Alerta visual cuando el stock es bajo.
 
 --------------------------------------------------------------------------------------------------------
 
-🛒 Punto de Venta
+## 🛒 Punto de Venta
 
 Venta de productos con validación de stock.
 
@@ -58,7 +58,7 @@ Actualización automática del inventario.
 
 --------------------------------------------------------------------------------------------------------
 
-💰 Control de Caja
+## 💰 Control de Caja
 
 Apertura de caja.
 
@@ -68,7 +68,7 @@ Cierre de caja con total de la sesión.
 
 --------------------------------------------------------------------------------------------------------
 
-📊 Reportes
+## 📊 Reportes
 
 Estado de la caja (abierta/cerrada).
 
@@ -80,7 +80,7 @@ Valor monetario del inventario.
 
 --------------------------------------------------------------------------------------------------------
 
-🧠 Estructuras y Algoritmos Usados
+## 🧠 Estructuras y Algoritmos Usados
 
 Estructuras (struct) para productos y carrito.
 
@@ -96,7 +96,7 @@ Validación de entradas (enteros y decimales).
 
 --------------------------------------------------------------------------------------------------------
 
-📁 Archivo de Productos
+## 📁 Archivo de Productos
 
 El sistema carga productos desde un archivo de texto con el siguiente formato:
 
@@ -110,7 +110,7 @@ A002;Azucar;Azucar refinada;1.10;30
 --------------------------------------------------------------------------------------------------------
 
 
-⚠️ Si el archivo no existe, el sistema inicia sin productos.
+## ⚠️ Si el archivo no existe, el sistema inicia sin productos.
 
 🖥 Requisitos
 
@@ -129,7 +129,7 @@ Consola que soporte códigos ANSI (colores).
 --------------------------------------------------------------------------------------------------------
 
 
-📌 Consideraciones Importantes
+## 📌 Consideraciones Importantes
 
 El inventario máximo es de 100 productos.
 
@@ -143,7 +143,7 @@ La eliminación de productos es lógica, no física.
 
 --------------------------------------------------------------------------------------------------------
 
-👨‍💻 Autor
+## 👨‍💻 Autor
 
 Proyecto académico desarrollado como práctica de: PROGRAMACION I  
 
