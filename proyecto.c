@@ -49,7 +49,7 @@ double caja_ingresos = 0.0;
 int IVA_POR_DEFECTO = 12;
 
 /* ---------- PROTOTIPOS ---------- */
-/* Es buena práctica declarar los prototipos arriba si las funciones se llaman entre sí desordenadamente */
+
 void leer_linea(char *buf, int len);
 int leer_entero(const char *msg);
 double leer_double(const char *msg);
